@@ -123,6 +123,14 @@ public:
         // Access nested list
         ListElement operator[](size_t index);
         
+        // Get pointer to underlying pylist (for test 6)
+        pylist* operator&() {
+            if (std::holds_alternative<std::shared_ptr<pylist>>(element)) {
+                return std::get<std::shared_ptr<pylist>>(element).get();
+            }
+            return nullptr;
+        }
+        
         // Output stream operator for ListElement
         friend std::ostream& operator<<(std::ostream& os, const ListElement& elem) {
             if (std::holds_alternative<int>(elem.element)) {
