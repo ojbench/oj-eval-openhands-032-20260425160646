@@ -52,8 +52,9 @@ public:
     private:
         std::variant<int, std::shared_ptr<pylist>>& element;
         
-        // Make pylist a friend so it can access element
+        // Make pylist and PopResult friends so they can access element
         friend class pylist;
+        friend class PopResult;
         
     public:
         ListElement(std::variant<int, std::shared_ptr<pylist>>& elem) : element(elem) {}
@@ -94,6 +95,24 @@ public:
                 element = std::get<std::shared_ptr<pylist>>(other.element);
             }
             return *this;
+        }
+        
+        // Assignment from PopResult
+        ListElement& operator=(const PopResult& other) {
+            if (std::holds_alternative<int>(other.value)) {
+                element = std::get<int>(other.value);
+            } else if (std::holds_alternative<std::shared_ptr<pylist>>(other.value)) {
+                element = std::get<std::shared_ptr<pylist>>(other.value);
+            }
+            return *this;
+        }
+        
+        // Pop method for nested access
+        PopResult pop() {
+            if (std::holds_alternative<std::shared_ptr<pylist>>(element)) {
+                return std::get<std::shared_ptr<pylist>>(element)->pop();
+            }
+            throw std::bad_variant_access();
         }
         
         // Append method - delegates to the underlying pylist
