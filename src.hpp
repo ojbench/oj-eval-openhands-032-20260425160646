@@ -42,21 +42,10 @@ public:
     
     void append(const ListElement& x);
     
-    pylist pop() {
-        if (node->data.empty()) {
-            throw std::out_of_range("pop from empty list");
-        }
-        auto result = node->data.back();
-        node->data.pop_back();
-        
-        if (std::holds_alternative<int>(result)) {
-            pylist temp;
-            temp.append(std::get<int>(result));
-            return temp;
-        } else {
-            return *std::get<std::shared_ptr<pylist>>(result);
-        }
-    }
+    // Forward declare PopResult
+    class PopResult;
+    
+    PopResult pop();
     
     // Helper class to handle both int and pylist access
     class ListElement {
@@ -133,6 +122,60 @@ public:
         return ListElement(node->data[i]);
     }
     
+    // Class to handle pop() return values
+    class PopResult {
+    private:
+        std::variant<int, std::shared_ptr<pylist>> value;
+        
+        // Make pylist a friend so it can access value
+        friend class pylist;
+        
+    public:
+        PopResult(const std::variant<int, std::shared_ptr<pylist>>& val) : value(val) {}
+        
+        // Conversion to int
+        operator int() const {
+            if (std::holds_alternative<int>(value)) {
+                return std::get<int>(value);
+            }
+            throw std::bad_variant_access();
+        }
+        
+        // Conversion to pylist
+        operator pylist() const {
+            if (std::holds_alternative<std::shared_ptr<pylist>>(value)) {
+                return *std::get<std::shared_ptr<pylist>>(value);
+            }
+            throw std::bad_variant_access();
+        }
+        
+        // Pop method for nested access
+        PopResult pop() {
+            if (std::holds_alternative<std::shared_ptr<pylist>>(value)) {
+                return std::get<std::shared_ptr<pylist>>(value)->pop();
+            }
+            throw std::bad_variant_access();
+        }
+        
+        // Access nested list
+        ListElement operator[](size_t index) {
+            if (std::holds_alternative<std::shared_ptr<pylist>>(value)) {
+                return (*std::get<std::shared_ptr<pylist>>(value))[index];
+            }
+            throw std::bad_variant_access();
+        }
+        
+        // Output stream operator for PopResult
+        friend std::ostream& operator<<(std::ostream& os, const PopResult& result) {
+            if (std::holds_alternative<int>(result.value)) {
+                os << std::get<int>(result.value);
+            } else if (std::holds_alternative<std::shared_ptr<pylist>>(result.value)) {
+                os << *std::get<std::shared_ptr<pylist>>(result.value);
+            }
+            return os;
+        }
+    };
+    
     friend std::ostream& operator<<(std::ostream& os, const pylist& ls) {
         os << "[";
         for (size_t i = 0; i < ls.node->data.size(); ++i) {
@@ -195,6 +238,15 @@ inline pylist::ListElement pylist::ListElement::operator[](size_t index) {
         return (*std::get<std::shared_ptr<pylist>>(element))[index];
     }
     throw std::bad_variant_access();
+}
+
+inline pylist::PopResult pylist::pop() {
+    if (node->data.empty()) {
+        throw std::out_of_range("pop from empty list");
+    }
+    auto result = node->data.back();
+    node->data.pop_back();
+    return PopResult(result);
 }
 
 #endif //PYLIST_H
